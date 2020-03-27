@@ -45,11 +45,11 @@ def sample_datasets_from_gps(batch_size,
     
     y_train_test = np.einsum('bij, bj -> bi', chol_train_test, noise)
     
-    x_train = x_train_test[:, :num_train]
-    x_test = x_train_test[:, num_train:]
+    x_train = x_train_test[:, :num_train, None]
+    x_test = x_train_test[:, num_train:, None]
     
-    y_train = y_train_test[:, :num_train]
-    y_test = y_train_test[:, num_train:]
+    y_train = y_train_test[:, :num_train, None]
+    y_test = y_train_test[:, num_train:, None]
     
     
     x_train, y_train, x_test, y_test = [torch.tensor(array).float() if as_tensor else array \
@@ -190,15 +190,16 @@ def np_plot_sample_and_predictions(neural_process,
     context_inputs, context_outputs = train_data
     target_inputs = torch.linspace(input_range[0],
                                    input_range[1],
-                                   100)[None, :]
+                                   100)[None, :, None]
     
-    pred_mean, pred_log_stdev, _, _ = neural_process.forward(context_inputs,
-                                                             context_outputs,
-                                                             target_inputs)
+    print(context_inputs.shape, context_outputs.shape, target_inputs.shape)
+    pred_mean, pred_log_stdev = neural_process.forward(context_inputs,
+                                                       context_outputs,
+                                                       target_inputs)
     
-    gp_means, gp_stds = gp_post_pred(train_data[0],
-                                     train_data[1],
-                                     target_inputs,
+    gp_means, gp_stds = gp_post_pred(train_data[0][..., 0],
+                                     train_data[1][..., 0],
+                                     target_inputs[..., 0],
                                      scale,
                                      cov_coeff,
                                      noise_coeff)
