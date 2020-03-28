@@ -19,7 +19,9 @@ def eq_covariance(inputs1,
     return exp_quad
 
 
-def sample_datasets_from_gps(batch_size,
+def sample_datasets_from_gps(low,
+                             high,
+                             batch_size,
                              num_train,
                              num_test,
                              scale,
@@ -27,8 +29,8 @@ def sample_datasets_from_gps(batch_size,
                              noise_coeff,
                              as_tensor):
     
-    x_train_test = np.random.uniform(low=-3.,
-                                     high=3.,
+    x_train_test = np.random.uniform(low=low,
+                                     high=high,
                                      size=(batch_size, num_train + num_test,))
 
     cov_train_test = eq_covariance(x_train_test,
@@ -82,7 +84,7 @@ def gp_post_pred(train_inputs,
     means = np.dot(k_star, np.linalg.solve(K, train_outputs[0]))
     
     K_inv_k_star = np.linalg.solve(K, k_star.T)
-    stds = (cov_coeff - np.diag(np.einsum('ij, jk -> ik', k_star, K_inv_k_star)) + noise_coeff ** 2)
+    stds = (cov_coeff - np.diag(np.einsum('ij, jk -> ik', k_star, K_inv_k_star)) + noise_coeff ** 2) ** 0.5
     
     return means, stds
 
@@ -170,6 +172,8 @@ def cnp_plot_sample_and_predictions(conditional_neural_process,
     
     
 def np_plot_sample_and_predictions(neural_process,
+                                   low,
+                                   high,
                                    input_range,
                                    num_train,
                                    num_test,
@@ -179,7 +183,9 @@ def np_plot_sample_and_predictions(neural_process,
                                    step,
                                    plot_test_data=False):
 
-    train_data, test_data = sample_datasets_from_gps(batch_size=1,
+    train_data, test_data = sample_datasets_from_gps(low=low,
+                                                     high=high,
+                                                     batch_size=1,
                                                      num_train=num_train,
                                                      num_test=num_test,
                                                      scale=scale,
@@ -192,10 +198,9 @@ def np_plot_sample_and_predictions(neural_process,
                                    input_range[1],
                                    100)[None, :, None]
     
-    print(context_inputs.shape, context_outputs.shape, target_inputs.shape)
-    pred_mean, pred_log_stdev = neural_process.forward(context_inputs,
-                                                       context_outputs,
-                                                       target_inputs)
+    pred_mean, pred_stdev = neural_process.forward(context_inputs,
+                                                   context_outputs,
+                                                   target_inputs)
     
     gp_means, gp_stds = gp_post_pred(train_data[0][..., 0],
                                      train_data[1][..., 0],
@@ -206,7 +211,7 @@ def np_plot_sample_and_predictions(neural_process,
     
     target_inputs = target_inputs.squeeze().detach().numpy()
     pred_mean = pred_mean.squeeze().detach().numpy()
-    pred_stdev = torch.exp(pred_log_stdev).squeeze().detach().numpy()
+    pred_stdev = pred_stdev.squeeze().detach().numpy()
     
     plt.plot(target_inputs, gp_means, color='blue', zorder=1)
     plt.fill_between(target_inputs,
@@ -242,7 +247,7 @@ def np_plot_sample_and_predictions(neural_process,
                     alpha=0.2,
                     zorder=1)
 
-    plt.xlim([-6, 6])
+    plt.xlim(input_range)
     plt.ylim([-3, 3])
     plt.legend(loc='lower right')
     plt.title(f'Step {step}', fontsize=16)
